@@ -8,7 +8,13 @@ Hệ thống file Ext4 (Fourth Extended Filesystem) là nền tảng lưu trữ 
 
 Superblock là thành phần siêu dữ liệu (metadata) cốt lõi, hoạt động như "bảng thông số tổng" của toàn bộ volume. Khi nó bị hỏng, hệ điều hành không thể nhận diện hoặc mount (gắn) volume, dẫn đến việc mất khả năng truy cập toàn bộ dữ liệu, mặc dù bản thân dữ liệu thực tế (data blocks) có thể vẫn còn nguyên vẹn.
 
-Báo cáo này tập trung phân tích lý thuyết về Superblock, cơ chế dự phòng của ext4, và trình bày một phương pháp luận phục hồi tự động (được hiện thực hóa bằng kịch bản) để xử lý tình huống lỗi này.
+Báo cáo này tập trung phân tích lý thuyết về Superblock, cơ chế dự phòng của ext4, và trình bày một phương pháp luận phục hồi tự động để xử lý tình huống lỗi này.
+
+**Implementation:** Dự án cung cấp hai phương pháp phục hồi:
+1. **Python Script** (`recover_ext4.py`) - Giải pháp automation sử dụng e2fsck
+2. **C++ Program** (`ext4_recovery`) - Low-level implementation với kiểm soát hoàn toàn
+
+Chi tiết xem [INDEX.md](INDEX.md) và [COMPARISON.md](COMPARISON.md).
 
 ---
 

@@ -1,0 +1,119 @@
+╔═══════════════════════════════════════════════════════════════╗
+║     EXT4 RECOVERY TOOL - BUILD & RUN INSTRUCTIONS            ║
+╚═══════════════════════════════════════════════════════════════╝
+
+[1] PREREQUISITES
+=================
+- Linux OS (Ubuntu/Debian recommended)
+- g++ compiler (sudo apt-get install build-essential)
+- Root privileges (for device access)
+- Python 3 (for Python version)
+
+[2] BUILD C++ VERSION
+=====================
+cd /workspace/GK
+make
+
+Expected output:
+  Compiling main_ext4_recovery.cpp...
+  Compiling ext4_recovery.cpp...
+  Linking...
+  Build successful! Executable: ext4_recovery
+
+[3] RUN C++ VERSION
+===================
+# Interactive menu
+sudo ./ext4_recovery <device_or_image>
+
+Example:
+  sudo ./ext4_recovery /dev/sdb1
+  sudo ./ext4_recovery test.img
+
+[4] RUN PYTHON VERSION
+======================
+sudo python3 recover_ext4.py <device_or_image>
+
+Example:
+  sudo python3 recover_ext4.py /dev/sdb1
+  sudo python3 recover_ext4.py test.img
+
+[5] RUN AUTOMATED TEST
+======================
+# C++ test (creates test image, corrupts it, guides recovery)
+sudo ./test_cpp_recovery.sh
+
+# Python test
+sudo bash test_recovery.sh
+
+[6] CLEAN BUILD
+===============
+make clean
+
+[7] DOCUMENTATION
+=================
+Start with:
+  cat INDEX.md
+  cat QUICK_START.md
+
+Full docs:
+  README_CPP.md      - C++ implementation details
+  COMPARISON.md      - Python vs C++ comparison
+  report.md          - Theory and academic report
+  PROJECT_SUMMARY.md - Executive summary
+
+[8] TROUBLESHOOTING
+===================
+Q: "Permission denied"
+A: Run with sudo
+
+Q: "g++ not found"
+A: sudo apt-get install build-essential
+
+Q: "Mount failed after recovery"
+A: Run: sudo e2fsck -f -y <device>
+
+Q: "No valid backup found"
+A: All backups may be corrupted, try professional tools
+
+[9] PROJECT STRUCTURE
+=====================
+Total files: 14
+- C++ files: 3 (ext4_recovery.h/cpp, main.cpp)
+- Python: 1 (recover_ext4.py)
+- Scripts: 2 (test_*.sh)
+- Docs: 6 (*.md)
+- Build: 1 (Makefile)
+- Other: 1 (PDF)
+
+Total code: ~925 lines
+- C++: ~800 lines
+- Python: ~150 lines
+
+[10] QUICK COMMANDS
+===================
+# All-in-one test
+cd /workspace/GK && make && sudo ./test_cpp_recovery.sh
+
+# Just build
+cd /workspace/GK && make
+
+# Run interactive
+cd /workspace/GK && sudo ./ext4_recovery test.img
+
+# Clean
+cd /workspace/GK && make clean
+
+[11] SAFETY NOTES
+=================
+⚠️  ALWAYS BACKUP before recovery
+⚠️  TEST ON IMAGES first
+⚠️  UNMOUNT device before recovery
+⚠️  Run e2fsck after recovery
+
+[12] AUTHOR
+===========
+Student ID: 22120299
+Course: Operating Systems
+Date: 2025-11-17
+
+═══════════════════════════════════════════════════════════════
