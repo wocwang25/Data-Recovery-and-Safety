@@ -1,8 +1,4 @@
-"""
-EXT4 File System Structures
-Định nghĩa các cấu trúc dữ liệu cơ bản của EXT4 filesystem
-Tham khảo: https://ext4.wiki.kernel.org/index.php/Ext4_Disk_Layout
-"""
+
 
 import struct
 from typing import Optional
@@ -12,10 +8,7 @@ import hashlib
 
 @dataclass
 class Superblock:
-    """
-    EXT4 Superblock - 1024 bytes
-    Chứa thông tin cấu hình và metadata của filesystem
-    """
+    
     # Offset 0x00
     s_inodes_count: int = 0          # Tổng số inodes
     s_blocks_count_lo: int = 0       # Tổng số blocks (32 bit thấp)
@@ -119,19 +112,26 @@ class Superblock:
     s_checksum: int = 0              # Superblock checksum
     
     def get_block_size(self) -> int:
-        """Tính block size từ s_log_block_size"""
+        
         return 1024 << self.s_log_block_size
     
     def get_total_blocks(self) -> int:
-        """Tính tổng số blocks (64-bit)"""
+        
         return (self.s_blocks_count_hi << 32) | self.s_blocks_count_lo
     
     def is_valid(self) -> bool:
-        """Kiểm tra superblock có hợp lệ không"""
+        
         return self.s_magic == 0xEF53
     
+    def get_volume_name(self) -> str:
+        
+        try:
+            return self.s_volume_name.rstrip(b'\x00').decode('utf-8', errors='ignore')
+        except:
+            return "(không có tên)"
+    
     def calculate_checksum(self, data: bytes) -> int:
-        """Tính checksum của superblock"""
+        
         # CRC32c checksum
         import binascii
         return binascii.crc32(data) & 0xffffffff
@@ -139,10 +139,7 @@ class Superblock:
 
 @dataclass
 class GroupDescriptor:
-    """
-    EXT4 Block Group Descriptor - 32 bytes (hoặc 64 bytes với 64bit feature)
-    Chứa thông tin về một block group
-    """
+    
     bg_block_bitmap_lo: int = 0      # Block bitmap block (32 bit thấp)
     bg_inode_bitmap_lo: int = 0      # Inode bitmap block (32 bit thấp)
     bg_inode_table_lo: int = 0       # Inode table block (32 bit thấp)
@@ -170,24 +167,21 @@ class GroupDescriptor:
     bg_reserved: int = 0
     
     def get_block_bitmap(self) -> int:
-        """Lấy địa chỉ block bitmap (64-bit)"""
+        
         return (self.bg_block_bitmap_hi << 32) | self.bg_block_bitmap_lo
     
     def get_inode_bitmap(self) -> int:
-        """Lấy địa chỉ inode bitmap (64-bit)"""
+        
         return (self.bg_inode_bitmap_hi << 32) | self.bg_inode_bitmap_lo
     
     def get_inode_table(self) -> int:
-        """Lấy địa chỉ inode table (64-bit)"""
+        
         return (self.bg_inode_table_hi << 32) | self.bg_inode_table_lo
 
 
 @dataclass
 class Inode:
-    """
-    EXT4 Inode - 256 bytes (hoặc lớn hơn)
-    Chứa metadata của file/directory
-    """
+    
     i_mode: int = 0                  # File mode (quyền và loại file)
     i_uid: int = 0                   # Owner UID (16 bit thấp)
     i_size_lo: int = 0               # File size (32 bit thấp)
@@ -217,28 +211,25 @@ class Inode:
     i_projid: int = 0                # Project ID
     
     def get_size(self) -> int:
-        """Lấy kích thước file (64-bit)"""
+        
         return (self.i_size_high << 32) | self.i_size_lo
     
     def is_directory(self) -> bool:
-        """Kiểm tra có phải directory không"""
+        
         return (self.i_mode & 0xF000) == 0x4000
     
     def is_regular_file(self) -> bool:
-        """Kiểm tra có phải file thông thường không"""
+        
         return (self.i_mode & 0xF000) == 0x8000
     
     def is_symlink(self) -> bool:
-        """Kiểm tra có phải symbolic link không"""
+        
         return (self.i_mode & 0xF000) == 0xA000
 
 
 @dataclass
 class DirectoryEntry:
-    """
-    EXT4 Directory Entry
-    Chứa thông tin về một entry trong directory
-    """
+    
     inode: int = 0                   # Inode number
     rec_len: int = 0                 # Length của directory entry
     name_len: int = 0                # Length của tên file
@@ -256,7 +247,7 @@ class DirectoryEntry:
     FT_SYMLINK = 7
     
     def get_type_name(self) -> str:
-        """Lấy tên loại file"""
+        
         types = {
             0: "Unknown",
             1: "Regular File",
@@ -272,10 +263,7 @@ class DirectoryEntry:
 
 @dataclass
 class ExtentHeader:
-    """
-    EXT4 Extent Header
-    Header cho extent tree
-    """
+    
     eh_magic: int = 0xF30A           # Magic number
     eh_entries: int = 0              # Số entries trong node này
     eh_max: int = 0                  # Maximum số entries
@@ -283,31 +271,28 @@ class ExtentHeader:
     eh_generation: int = 0           # Generation của tree
     
     def is_valid(self) -> bool:
-        """Kiểm tra header có hợp lệ không"""
+        
         return self.eh_magic == 0xF30A
 
 
 @dataclass
 class Extent:
-    """
-    EXT4 Extent - 12 bytes
-    Mô tả một phạm vi blocks liên tục
-    """
+    
     ee_block: int = 0                # First logical block
     ee_len: int = 0                  # Số blocks
     ee_start_hi: int = 0             # Physical block (16 bit cao)
     ee_start_lo: int = 0             # Physical block (32 bit thấp)
     
     def get_start_block(self) -> int:
-        """Lấy physical block đầu tiên (48-bit)"""
+        
         return (self.ee_start_hi << 32) | self.ee_start_lo
     
     def is_uninitialized(self) -> bool:
-        """Kiểm tra extent có được khởi tạo chưa"""
+        
         return self.ee_len > 32768  # Bit cao được set
     
     def get_length(self) -> int:
-        """Lấy độ dài thực của extent"""
+        
         if self.is_uninitialized():
             return self.ee_len - 32768
         return self.ee_len

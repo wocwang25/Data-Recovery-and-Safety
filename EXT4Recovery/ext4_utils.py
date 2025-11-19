@@ -1,8 +1,4 @@
-"""
-EXT4 Utility Functions
-Các hàm tiện ích để đọc/ghi dữ liệu, chuyển đổi, và tính toán
-Tương tự như utils.cpp trong FileSystem project
-"""
+
 
 import struct
 import os
@@ -13,21 +9,11 @@ from ext4_structures import *
 
 
 class EXT4Utils:
-    """Class chứa các hàm tiện ích cho EXT4"""
+    
     
     @staticmethod
     def read_block(file_path: str, block_number: int, block_size: int) -> Optional[bytes]:
-        """
-        Đọc một block từ file
         
-        Args:
-            file_path: Đường dẫn đến file/device
-            block_number: Số thứ tự block cần đọc
-            block_size: Kích thước của một block (bytes)
-            
-        Returns:
-            Dữ liệu của block hoặc None nếu lỗi
-        """
         try:
             with open(file_path, 'rb') as f:
                 offset = block_number * block_size
@@ -43,18 +29,7 @@ class EXT4Utils:
     
     @staticmethod
     def write_block(file_path: str, block_number: int, data: bytes, block_size: int) -> bool:
-        """
-        Ghi một block vào file
         
-        Args:
-            file_path: Đường dẫn đến file/device
-            block_number: Số thứ tự block cần ghi
-            data: Dữ liệu cần ghi
-            block_size: Kích thước của một block (bytes)
-            
-        Returns:
-            True nếu thành công, False nếu lỗi
-        """
         try:
             with open(file_path, 'r+b') as f:
                 offset = block_number * block_size
@@ -72,17 +47,7 @@ class EXT4Utils:
     
     @staticmethod
     def read_bytes(file_path: str, offset: int, size: int) -> Optional[bytes]:
-        """
-        Đọc một số byte từ file tại offset cụ thể
         
-        Args:
-            file_path: Đường dẫn đến file/device
-            offset: Vị trí bắt đầu đọc (bytes)
-            size: Số bytes cần đọc
-            
-        Returns:
-            Dữ liệu đọc được hoặc None nếu lỗi
-        """
         try:
             with open(file_path, 'rb') as f:
                 f.seek(offset)
@@ -93,17 +58,7 @@ class EXT4Utils:
     
     @staticmethod
     def write_bytes(file_path: str, offset: int, data: bytes) -> bool:
-        """
-        Ghi dữ liệu vào file tại offset cụ thể
         
-        Args:
-            file_path: Đường dẫn đến file/device
-            offset: Vị trí bắt đầu ghi (bytes)
-            data: Dữ liệu cần ghi
-            
-        Returns:
-            True nếu thành công, False nếu lỗi
-        """
         try:
             with open(file_path, 'r+b') as f:
                 f.seek(offset)
@@ -115,85 +70,32 @@ class EXT4Utils:
     
     @staticmethod
     def bytes_to_int_le(data: bytes) -> int:
-        """
-        Chuyển đổi bytes thành integer (little-endian)
-        Tương tự reverseByte() trong utils.cpp
         
-        Args:
-            data: Dữ liệu bytes
-            
-        Returns:
-            Giá trị integer
-        """
         return int.from_bytes(data, byteorder='little', signed=False)
     
     @staticmethod
     def int_to_bytes_le(value: int, size: int) -> bytes:
-        """
-        Chuyển đổi integer thành bytes (little-endian)
-        Tương tự decToHexaLE() trong utils.cpp
         
-        Args:
-            value: Giá trị integer
-            size: Số bytes
-            
-        Returns:
-            Dữ liệu bytes
-        """
         return value.to_bytes(size, byteorder='little', signed=False)
     
     @staticmethod
     def is_buffer_empty(data: bytes) -> bool:
-        """
-        Kiểm tra buffer có rỗng (toàn 0) không
-        Tương tự isBufferEmpty() trong utils.cpp
         
-        Args:
-            data: Dữ liệu cần kiểm tra
-            
-        Returns:
-            True nếu rỗng, False nếu không
-        """
         return all(b == 0 for b in data)
     
     @staticmethod
     def calculate_crc32c(data: bytes) -> int:
-        """
-        Tính CRC32C checksum (dùng cho EXT4)
         
-        Args:
-            data: Dữ liệu cần tính checksum
-            
-        Returns:
-            Giá trị checksum
-        """
         return binascii.crc32(data) & 0xffffffff
     
     @staticmethod
     def calculate_md5(data: str) -> str:
-        """
-        Tính MD5 hash của string
-        Tương tự md5() trong md5.cpp
         
-        Args:
-            data: Chuỗi cần hash
-            
-        Returns:
-            MD5 hash (hex string)
-        """
         return hashlib.md5(data.encode()).hexdigest()
     
     @staticmethod
     def parse_superblock(data: bytes) -> Optional[Superblock]:
-        """
-        Parse dữ liệu thành Superblock structure
         
-        Args:
-            data: Dữ liệu superblock (1024 bytes)
-            
-        Returns:
-            Superblock object hoặc None nếu không hợp lệ
-        """
         if len(data) < 1024:
             return None
         
@@ -282,16 +184,7 @@ class EXT4Utils:
     
     @staticmethod
     def parse_group_descriptor(data: bytes, use_64bit: bool = False) -> Optional[GroupDescriptor]:
-        """
-        Parse dữ liệu thành Group Descriptor structure
         
-        Args:
-            data: Dữ liệu group descriptor (32 hoặc 64 bytes)
-            use_64bit: Có sử dụng 64-bit mode không
-            
-        Returns:
-            GroupDescriptor object hoặc None nếu lỗi
-        """
         if len(data) < 32:
             return None
         
@@ -332,15 +225,7 @@ class EXT4Utils:
     
     @staticmethod
     def parse_inode(data: bytes) -> Optional[Inode]:
-        """
-        Parse dữ liệu thành Inode structure
         
-        Args:
-            data: Dữ liệu inode (ít nhất 128 bytes, thường là 256 bytes)
-            
-        Returns:
-            Inode object hoặc None nếu lỗi
-        """
         if len(data) < 128:
             return None
         
@@ -389,15 +274,7 @@ class EXT4Utils:
     
     @staticmethod
     def format_bytes(size: int) -> str:
-        """
-        Format kích thước bytes thành string dễ đọc
         
-        Args:
-            size: Kích thước (bytes)
-            
-        Returns:
-            String đã format (ví dụ: "1.5 GB")
-        """
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
             if size < 1024.0:
                 return f"{size:.2f} {unit}"
@@ -406,14 +283,7 @@ class EXT4Utils:
     
     @staticmethod
     def print_hex_dump(data: bytes, offset: int = 0, length: int = None):
-        """
-        In dữ liệu dạng hex dump (giống hexdump command)
         
-        Args:
-            data: Dữ liệu cần in
-            offset: Offset bắt đầu
-            length: Số bytes cần in (None = tất cả)
-        """
         if length is None:
             length = len(data)
         
