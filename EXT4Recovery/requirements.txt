@@ -1,0 +1,6 @@
+# Python standard libraries only
+# No external dependencies required for basic functionality
+
+# Optional: For enhanced features (uncomment if needed)
+# pytest>=7.0.0  # For testing
+# pytest-cov>=4.0.0  # For coverage reports
