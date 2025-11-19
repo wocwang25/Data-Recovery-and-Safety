@@ -190,48 +190,62 @@ class BitmapRecovery:
             bitmap_size = blocks_per_group // 8
             new_bitmaps.append(bytearray(bitmap_size))
         
-        # Danh dau cac block metadata (superblock, gdt, bitmaps, inode table)
+        # Danh dau cac block metadata cho moi group
+        print(" Dang danh dau metadata blocks...")
         for group_num in range(num_groups):
-            # Simplified - chi danh dau metadata blocks
-            # Block 0-31: superblock + GDT + bitmaps + inode table start
-            for block_idx in range(32):
-                byte_idx = block_idx // 8
-                bit_idx = block_idx % 8
-                if byte_idx < len(new_bitmaps[group_num]):
-                    new_bitmaps[group_num][byte_idx] |= (1 << bit_idx)
+            gd = self.group_descriptors[group_num]
+            
+            # 1. Superblock (chi group 0 hoac sparse groups)
+            if group_num == 0:
+                # Block 0 (boot block) va block 1 (superblock)
+                for block_idx in range(2):
+                    self._mark_block_used(new_bitmaps, group_num, block_idx, blocks_per_group)
+            
+            # 2. Group Descriptor Table
+            # GDT bat dau sau superblock
+            gdt_start = 2 if group_num == 0 else 0
+            gdt_blocks = (num_groups * 32 + block_size - 1) // block_size
+            for i in range(gdt_blocks):
+                self._mark_block_used(new_bitmaps, group_num, gdt_start + i, blocks_per_group)
+            
+            # 3. Reserved GDT blocks (cho future resize)
+            reserved_gdt = self.superblock.s_reserved_gdt_blocks
+            for i in range(reserved_gdt):
+                self._mark_block_used(new_bitmaps, group_num, gdt_start + gdt_blocks + i, blocks_per_group)
+            
+            # 4. Block bitmap
+            block_bitmap_block = gd.bg_block_bitmap_lo
+            self._mark_block_used_absolute(new_bitmaps, block_bitmap_block, blocks_per_group)
+            
+            # 5. Inode bitmap
+            inode_bitmap_block = gd.bg_inode_bitmap_lo
+            self._mark_block_used_absolute(new_bitmaps, inode_bitmap_block, blocks_per_group)
+            
+            # 6. Inode table
+            inode_table_block = gd.bg_inode_table_lo
+            inodes_per_group = self.superblock.s_inodes_per_group
+            inode_size = self.superblock.s_inode_size
+            inode_table_blocks = (inodes_per_group * inode_size + block_size - 1) // block_size
+            
+            for i in range(inode_table_blocks):
+                self._mark_block_used_absolute(new_bitmaps, inode_table_block + i, blocks_per_group)
         
-        # Danh dau blocks duoc su dung boi inodes
+        # Danh dau journal blocks (inode 8)
+        print(" Dang danh dau journal blocks...")
+        journal_inode = None
+        for inode_info in inodes_data:
+            if inode_info['inode_num'] == 8:  # Journal inode
+                journal_inode = inode_info['inode']
+                break
+        
+        if journal_inode:
+            self._mark_inode_blocks(new_bitmaps, journal_inode, blocks_per_group)
+        
+        # Danh dau blocks duoc su dung boi data files
+        print(" Dang danh dau data blocks...")
         for inode_info in inodes_data:
             inode = inode_info['inode']
-            
-            # Parse extent tree de lay block numbers
-            # Simplified version
-            if inode.i_flags & 0x80000:  # EXT4_EXTENTS_FL
-                extent_header_data = inode.i_block[:12]
-                num_extents = extent_header_data[2]
-                
-                for i in range(min(num_extents, 4)):
-                    extent_offset = 12 + i * 12
-                    if extent_offset + 12 <= len(inode.i_block):
-                        extent_data = inode.i_block[extent_offset:extent_offset+12]
-                        
-                        ee_len = int.from_bytes(extent_data[4:6], 'little')
-                        ee_start_hi = int.from_bytes(extent_data[6:8], 'little')
-                        ee_start_lo = int.from_bytes(extent_data[8:12], 'little')
-                        
-                        physical_block = (ee_start_hi << 32) | ee_start_lo
-                        
-                        # Danh dau cac blocks
-                        for block_num in range(physical_block, physical_block + ee_len):
-                            group_num = block_num // blocks_per_group
-                            local_block = block_num % blocks_per_group
-                            
-                            if group_num < num_groups:
-                                byte_idx = local_block // 8
-                                bit_idx = local_block % 8
-                                
-                                if byte_idx < len(new_bitmaps[group_num]):
-                                    new_bitmaps[group_num][byte_idx] |= (1 << bit_idx)
+            self._mark_inode_blocks(new_bitmaps, inode, blocks_per_group)
         
         # Ghi lai block bitmaps
         print(" Dang ghi lai block bitmaps...")
@@ -294,3 +308,113 @@ class BitmapRecovery:
         
         print(" Hoan thanh rebuild inode bitmap!")
         return True
+    
+    def _mark_block_used_absolute(self, bitmaps, absolute_block, blocks_per_group):
+        """Mark a block as used given its absolute block number"""
+        group_num = absolute_block // blocks_per_group
+        local_block = absolute_block % blocks_per_group
+        
+        if group_num >= len(bitmaps):
+            return
+        
+        byte_idx = local_block // 8
+        bit_idx = local_block % 8
+        
+        if byte_idx < len(bitmaps[group_num]):
+            bitmaps[group_num][byte_idx] |= (1 << bit_idx)
+    
+    def _mark_block_used(self, bitmaps, group_num, local_block, blocks_per_group):
+        
+        if group_num >= len(bitmaps):
+            return
+        
+        if local_block >= blocks_per_group:
+            return
+        
+        byte_idx = local_block // 8
+        bit_idx = local_block % 8
+        
+        if byte_idx < len(bitmaps[group_num]):
+            bitmaps[group_num][byte_idx] |= (1 << bit_idx)
+    
+    def _mark_inode_blocks(self, bitmaps, inode, blocks_per_group):
+        
+        if not inode:
+            return
+        
+        # i_block is a tuple of 15 integers (4 bytes each)
+        # Pack it into bytes for parsing
+        i_block_bytes = b''
+        for val in inode.i_block:
+            i_block_bytes += val.to_bytes(4, 'little')
+        
+        # Parse extent tree de lay block numbers
+        if inode.i_flags & 0x80000:  # EXT4_EXTENTS_FL
+            extent_header_data = i_block_bytes[:12]
+            
+            if len(extent_header_data) < 12:
+                return
+            
+            # Check magic
+            try:
+                eh_magic = int.from_bytes(extent_header_data[0:2], 'little')
+            except:
+                return
+                
+            if eh_magic != 0xF30A:
+                return
+            
+            eh_entries = int.from_bytes(extent_header_data[2:4], 'little')
+            eh_depth = int.from_bytes(extent_header_data[6:8], 'little')
+            
+            if eh_depth == 0:  # Leaf node
+                # Parse extent entries
+                for i in range(min(eh_entries, 4)):  # Max 4 extents in inode
+                    extent_offset = 12 + i * 12
+                    if extent_offset + 12 <= len(i_block_bytes):
+                        extent_data = i_block_bytes[extent_offset:extent_offset+12]
+                        
+                        ee_len = int.from_bytes(extent_data[4:6], 'little')
+                        ee_start_hi = int.from_bytes(extent_data[6:8], 'little')
+                        ee_start_lo = int.from_bytes(extent_data[8:12], 'little')
+                        
+                        physical_block = (ee_start_hi << 32) | ee_start_lo
+                        
+                        # Danh dau cac blocks
+                        for block_num in range(physical_block, physical_block + ee_len):
+                            self._mark_block_used_absolute(bitmaps, block_num, blocks_per_group)
+            else:
+                # Internal node - would need to follow extent index
+                # For now, just mark the extent tree blocks themselves
+                for i in range(min(eh_entries, 4)):
+                    extent_offset = 12 + i * 12
+                    if extent_offset + 12 <= len(i_block_bytes):
+                        extent_data = i_block_bytes[extent_offset:extent_offset+12]
+                        
+                        # ei_leaf points to next level
+                        ei_leaf_lo = int.from_bytes(extent_data[4:8], 'little')
+                        ei_leaf_hi = int.from_bytes(extent_data[8:10], 'little')
+                        leaf_block = (ei_leaf_hi << 32) | ei_leaf_lo
+                        
+                        self._mark_block_used_absolute(bitmaps, leaf_block, blocks_per_group)
+        else:
+            # Direct/indirect block pointers (old style)
+            # Direct blocks (0-11)
+            for i in range(12):
+                if i < len(inode.i_block):
+                    block_num = inode.i_block[i]
+                    if block_num > 0:
+                        self._mark_block_used_absolute(bitmaps, block_num, blocks_per_group)
+            
+            # Indirect block (12)
+            if 12 < len(inode.i_block):
+                indirect_block = inode.i_block[12]
+                if indirect_block > 0:
+                    self._mark_block_used_absolute(bitmaps, indirect_block, blocks_per_group)
+            
+            # Double indirect (13) and Triple indirect (14)
+            for i in [13, 14]:
+                if i < len(inode.i_block):
+                    block_num = inode.i_block[i]
+                    if block_num > 0:
+                        self._mark_block_used_absolute(bitmaps, block_num, blocks_per_group)
