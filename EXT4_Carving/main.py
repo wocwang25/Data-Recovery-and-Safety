@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-EXT4 File Carving - Deleted File & Directory Recovery
-Phục hồi deleted files và directories bằng file carving technique
-3 options: Check, Delete, Recover
-"""
-
 import sys
 import os
 
@@ -17,8 +10,6 @@ from handlers import (
 
 
 def main():
-    """Main program"""
-    
     # Check arguments
     if len(sys.argv) < 2:
         # Tìm .img files trong thư mục hiện tại
@@ -86,15 +77,15 @@ def main():
         elif choice == '3':
             handle_recover_data(image_file)
         elif choice == '0':
-            print("\n👋 Goodbye!")
+            print("\nGoodbye!")
             break
         else:
-            print("\n⚠️  Invalid option! Please select 0-3")
+            print("\nInvalid option! Please select 0-3")
 
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n👋 Interrupted by user. Goodbye!")
+        print("\n\nInterrupted by user. Goodbye!")
         sys.exit(0)
